@@ -1289,24 +1289,7 @@
 
         },
 
-        clickDate: function(e) {
-
-            if (!$(e.target).hasClass('available')) return;
-
-            var title = $(e.target).attr('data-title');
-            var row = title.substr(1, 1);
-            var col = title.substr(3, 1);
-            var cal = $(e.target).parents('.calendar');
-            var date = cal.hasClass('left') ? this.leftCalendar.calendar[row][col] : this.rightCalendar.calendar[row][col];
-
-            //
-            // this function needs to do a few things:
-            // * alternate between selecting a start and end date for the range,
-            // * if the time picker is enabled, apply the hour/minute/second from the select boxes to the clicked date
-            // * if autoapply is enabled, and an end date was chosen, apply the selection
-            // * if single date picker mode, and time picker isn't enabled, apply the selection immediately
-            // * if one of the inputs above the calendars was focused, cancel that manual input
-            //
+        clickDateDefault: function(date) {
 
             if (this.endDate || date.isBefore(this.startDate, 'day')) { //picking start
                 if (this.timePicker) {
@@ -1348,6 +1331,63 @@
                   this.clickApply();
                 }
             }
+        },
+
+        clickDateAccelerated: function(date, left_calendar) {
+
+            if (this.timePicker) {
+                var hour = parseInt(this.container.find('.left .hourselect').val(), 10);
+                if (!this.timePicker24Hour) {
+                    var ampm = this.container.find('.left .ampmselect').val();
+                    if (ampm === 'PM' && hour < 12)
+                        hour += 12;
+                    if (ampm === 'AM' && hour === 12)
+                        hour = 0;
+                }
+                var minute = parseInt(this.container.find('.left .minuteselect').val(), 10);
+                var second = this.timePickerSeconds ? parseInt(this.container.find('.left .secondselect').val(), 10) : 0;
+                date = date.clone().hour(hour).minute(minute).second(second);
+            }
+
+            if (date.isBefore(this.startDate, 'day')) { //picking start
+                this.setStartDate(date.clone());
+            } else if (date.isAfter(this.endDate, 'day')) { // picking end
+                this.setEndDate(date.clone());
+            } else { // betwen 2 dates
+                var to_start = date.diff(this.startDate);
+                var to_end = this.endDate.diff(date);
+
+                if (to_start<=to_end) {
+                    this.setStartDate(date.clone())
+                } else {
+                    this.setEndDate(date.clone())
+                }
+            }
+
+            if (this.autoApply) {
+              this.calculateChosenLabel();
+              this.clickApply();
+            }
+        },
+
+        clickDate: function(e) {
+
+            if (!$(e.target).hasClass('available')) return;
+
+            var title = $(e.target).attr('data-title');
+            var row = title.substr(1, 1);
+            var col = title.substr(3, 1);
+            var cal = $(e.target).parents('.calendar');
+            var left_cal = cal.hasClass('left');
+            var date = left_cal ? this.leftCalendar.calendar[row][col] : this.rightCalendar.calendar[row][col];
+
+            //
+            // this function needs to do a few things:
+            // * alternate between selecting a start and end date for the range,
+            // * if the time picker is enabled, apply the hour/minute/second from the select boxes to the clicked date
+            // * if autoapply is enabled, and an end date was chosen, apply the selection
+            // * if single date picker mode, and time picker isn't enabled, apply the selection immediately
+            //
 
             if (this.singleDatePicker) {
                 this.setEndDate(this.startDate);
@@ -1355,11 +1395,14 @@
                     this.clickApply();
             }
 
+            if (!this.useAcceleratedChoice) {
+                this.clickDateDefault(date)
+            } else {
+                this.clickDateAccelerated(date, left_cal)
+            }
+
             this.updateView();
-
-            //This is to cancel the blur event handler if the mouse was in one of the inputs
             e.stopPropagation();
-
         },
 
         calculateChosenLabel: function() {
